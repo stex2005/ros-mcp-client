@@ -12,97 +12,120 @@ A simplified, text-only version of the Gemini Live client for controlling ROS ro
 
 ## Quick Setup
 
-### 1. Install Dependencies
+### 1. Automated Setup (Recommended)
 
 ```bash
 # Navigate to the gemini_live folder
 cd clients/gemini_live
 
-# Run the automated setup
-chmod +x setup_text_only.sh
-./setup_text_only.sh
+# Run the automated setup script
+chmod +x setup_gemini_client.sh
+./setup_gemini_client.sh
 ```
 
-### 2. Get Google API Key
+The setup script will:
+- ✅ Install system dependencies (python3-dev, python3-venv)
+- ✅ Install Python dependencies using `uv sync` or `pip install -e .`
+- ✅ Create `.env` template in the correct location
+- ✅ Provide clear next steps to import the `GOOGLE_API_KEY`
+
+### 2. Manual Setup (Alternative)
+
+If you prefer manual setup:
+
+```bash
+# Install dependencies
+uv sync  # or pip install -e .
+
+# Create .env file
+echo "GOOGLE_API_KEY=your_actual_api_key_here" > .env
+```
+
+### 3. Get Google API Key
 
 1. Go to [Google AI Studio](https://aistudio.google.com/)
 2. Sign in with your Google account
 3. Click "Get API key" and create a new key
 4. Copy the API key
 
-### 3. Configure Environment
+### 4. Configure Environment
 
-Create a `.env` file with your Google API key:
+**Location:** The `.env` file must be in `clients/gemini_live/.env`
+
 ```bash
-# Create .env file
-echo "GOOGLE_API_KEY=your_actual_api_key_here" > .env
-
-# Or edit manually
-nano .env
+# Edit the .env file
+nano clients/gemini_live/.env
 ```
 
-**Important:** Replace `your_actual_api_key_here` with your real Google API key from step 2.
+Add your Google API key:
+```bash
+# Google API Key for Gemini
+GOOGLE_API_KEY=your_actual_api_key_here
+```
 
-### 4. Configure MCP Server
+### 5. Configure MCP Server
 
-Update `mcp_config.json` with the correct path to your ros-mcp-server:
+Update `mcp.json` with the correct path to your ros-mcp-server:
 ```json
 {
    "mcpServers": {
-      "ros-mcp-server": {
-         "command": "uv",
-         "args": [
+     "ros-mcp-server": {
+       "name": "ROS-MCP Server (Linux/WSL)",
+       "transport": "stdio",
+       "command": "uv",
+       "args": [
          "--directory",
-         "/path/to/ros-mcp-server", 
+         "/mnt/c/Users/<USERNAME>/ros-mcp-server",
          "run",
-         "server.py"
-         ]
-      }
+         "server.py",
+         "--transport=stdio"
+       ]
+     }
    }
 }
 ```
 
-**For WSL users:** Use WSL paths (e.g., `/mnt/c/Users/username/ros-mcp-server`)
+**For WSL users:** Use WSL paths (e.g., `/mnt/c/Users/<USERNAME>/ros-mcp-server`)
 
 ## Usage
 
-### Start the Text-Only Client
+### Start the Client
 
 ```bash
-# Basic usage
-uv run gemini_client_text_only.py
+# Navigate to the client directory
+cd clients/gemini_live
 
-# With specific response mode
-uv run gemini_client_text_only.py --responses=TEXT
+# Run the client
+uv run gemini_client.py
+
+# Or with Python directly
+python gemini_client.py
 ```
-
-### Command Line Options
-
-- `--responses`: Response format from Gemini
-  - `TEXT` (default): Text responses only
-  - `AUDIO`: Audio responses (requires audio setup)
 
 ### Example Session
 
 ```
 🚀 Starting Gemini Live Text-Only Client...
+💡 Type 'q' to quit
+==================================================
 ✅ Connected to MCP server
 🔧 Loaded 25 tools from MCP server
 ✅ Connected to Gemini Live
 🎯 Ready for robot control commands!
 ==================================================
-🤖 message > connect to robot on localhost
-🤖 > Successfully connected
-🤖 message > what topics are available?
-🤖 > Here are the available ROS topics:
+message > connect to robot
+response > Successfully connected
+message > what topics are available?
+response > Here are the available ROS topics:
 - /cmd_vel
 - /odom
 - /scan
-🤖 message > move the robot forward at 1 m/s
-🤖 > I'll move the robot forward at 1 m/s
-🤖 message > q
-👋 Goodbye!
+message > move the robot forward at 1 m/s
+response > I'll move the robot forward at 1 m/s
+message > q
+Goodbye!
 ```
+
 
 ## Test with Turtlesim
 
@@ -132,26 +155,32 @@ ros2 run turtlesim turtlesim_node
 
 **Connection errors?**
 - Verify rosbridge is running: `ros2 launch rosbridge_server rosbridge_websocket_launch.xml`
-- Check MCP server path in `mcp_config.json`
+- Check MCP server path in `mcp.json`
 - Ensure ros-mcp-server is installed and working
 
 **API key errors?**
-- Verify `.env` file exists with correct key
+- Verify `.env` file exists in `clients/gemini_live/.env` with correct key
 - Check key is active in Google AI Studio
+- Run: `cat clients/gemini_live/.env` to verify the file exists
 
 **Import errors?**
-- Run the setup script: `./setup_text_only.sh`
-- Install manually: `uv pip install google-genai python-dotenv mcp`
+- Run the setup script: `./setup_gemini_client.sh`
+- Install manually: `uv sync` or `pip install -e .`
+
+**MCP configuration errors?**
+- Check `mcp.json` exists in `clients/gemini_live/`
+- Verify the path to ros-mcp-server is correct
+- Ensure the ros-mcp-server is running
 
 ### WSL-Specific Tips
 
-- Use WSL paths in `mcp_config.json` (e.g., `/mnt/c/Users/username/...`)
+- Use WSL paths in `mcp.json` (e.g., `/mnt/c/Users/username/...`)
 - This version has no audio/video dependencies, so it works perfectly in WSL
 - No need for portaudio, pyaudio, or camera libraries
 
 ## Comparison with Full Version
 
-| Feature | Text-Only | Full Version |
+| Feature | Lite Version | Full Version |
 |---------|-----------|--------------|
 | Text interaction | ✅ | ✅ |
 | Audio input | ❌ | ✅ |

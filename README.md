@@ -59,35 +59,63 @@ The MCP client is version-agnostic (ROS1 or ROS2).
 ### Installation  
 
 1. Clone the repository  
-```
+```bash
 git clone https://github.com/robotmcp/ros-mcp-client.git
 cd ros-mcp-client
 ```
 
-2. Install `uv` and `rosbridge`  
-
-3. Prepare environment
-```
-uv sync # or pip install -e
+2. Install dependencies
+```bash
+uv sync  # or pip install -e .
 ```
 
-4. Pick your model and run the client
-```
-cd gemini_client
-uv run client.py
-```
+3. Follow the setup guide for the Gemini Live client:
+   - **[Gemini Live Client](clients/gemini_live/README.md)** - Google Gemini integration
 
-5. Start `rosbridge` on the target robot  
+4. Start `rosbridge` on the target robot
+```bash
+ros2 launch rosbridge_server rosbridge_websocket_launch.xml
+```  
 
 ---
 
-## 📚 Examples & Tutorials  
+## 📁 Project Structure
 
-Browse our [examples](examples) to see the server in action. 
-- `Google Gemini` client
-- `Nvidia NeMo` client
+```
+ros-mcp-client/
+├── clients/
+│   ├── gemini_live/          # Full-featured Gemini client
+│   │   ├── gemini_client.py  # Main client script
+│   │   ├── mcp.json          # MCP server configuration
+│   │   ├── setup_gemini_client.sh  # Automated setup
+│   │   └── README.md         # Detailed setup guide
+├── config/                   # Shared configuration
+├── scripts/                  # Utility scripts
+├── pyproject.toml           # Python dependencies
+└── README.md               # This file
+```
 
-We welcome community PRs with new examples and integrations!  
+---
+
+## 📚 Available Clients  
+
+The project includes a comprehensive LLM client implementation:
+
+### 🤖 **Gemini Live Client** (`clients/gemini_live/`)
+- **Full-featured** Google Gemini integration
+- **Text-only mode** optimized for WSL
+- **Real-time interaction** with ROS robots
+- **Automated setup** with `setup_gemini_client.sh`
+
+### 🚀 **Quick Start**
+```bash
+# Try the Gemini Live client
+cd clients/gemini_live
+./setup_gemini_client.sh
+uv run gemini_client.py
+```
+
+We welcome community PRs with new client implementations and integrations!  
 
 ---
 
