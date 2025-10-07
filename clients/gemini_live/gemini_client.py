@@ -190,7 +190,9 @@ class TextOnlyClient:
                         if part.text:
                             text_content = part.text
                             if first_text:
-                                print(f"\nresponse > {text_content}", end="", flush=True)
+                                print(
+                                    f"\nresponse > {text_content}", end="", flush=True
+                                )
                                 first_text = False
                             else:
                                 print(text_content, end="", flush=True)
