@@ -20,7 +20,8 @@ jobs:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Fetch clone data via GitHub App
+      # 1️⃣ Fetch 14-day total clone data
+      - name: Fetch clone summary data
         env:
           TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
@@ -30,7 +31,19 @@ jobs:
                > clone_stats.json
           cat clone_stats.json
 
-      - name: Append to CSV log
+      # 2️⃣ Fetch individual daily breakdowns
+      - name: Fetch per-day clone data
+        env:
+          TOKEN: ${{ steps.generate_token.outputs.token }}
+        run: |
+          curl -s -H "Accept: application/vnd.github+json" \
+               -H "Authorization: Bearer $TOKEN" \
+               "https://api.github.com/repos/${{ github.repository }}/traffic/clones?per=day" \
+               > clone_stats_daily.json
+          cat clone_stats_daily.json | jq '.clones | length as $n | "\($n) days of data"' -r
+
+      # 3️⃣ Append overall 14-day summary to clone_metrics.csv
+      - name: Append 14-day summary
         run: |
           COUNT=$(jq '.count' clone_stats.json)
           UNIQUES=$(jq '.uniques' clone_stats.json)
@@ -43,12 +56,30 @@ jobs:
           echo "$DATE,$COUNT,$UNIQUES" >> clone_metrics.csv
           tail -n 3 clone_metrics.csv
 
+      # 4️⃣ Append per-day data to clone_metrics_daily.csv
+      - name: Append daily clone breakdown
+        run: |
+          if [ ! -f clone_metrics_daily.csv ]; then
+            echo "date,clones,unique_cloners" > clone_metrics_daily.csv
+          fi
+
+          jq -r '.clones[] | "\(.timestamp[0:10]),\(.count),\(.uniques)"' clone_stats_daily.json \
+          | while IFS= read -r line; do
+              date=$(echo "$line" | cut -d',' -f1)
+              if ! grep -q "^$date," clone_metrics_daily.csv; then
+                echo "$line" >> clone_metrics_daily.csv
+              fi
+            done
+
+          tail -n 5 clone_metrics_daily.csv
+
+      # 5️⃣ Commit and push results
       - name: Commit and push results
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
-          git config user.name "CloneMetricsBot"
-          git config user.email "clonebot@users.noreply.github.com"
-          git add clone_metrics.csv
-          git commit -m "Update clone metrics [skip ci]" || echo "No changes to commit"
-          git push
+          git config user.name "GitHub Clone Metrics"
+          git config user.email "no-reply@github.com"
+          git add clone_metrics.csv clone_metrics_daily.csv
+          git commit -m "Update clone metrics" || echo "No changes to commit"
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD
