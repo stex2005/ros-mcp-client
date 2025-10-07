@@ -2,7 +2,7 @@ name: Track Clone Metrics via GitHub App
 
 on:
   schedule:
-    - cron: "30 4 * * *"    # Daily at 04:00 UTC
+    - cron: "0 */2 * * *"    # Every 2 hours
   workflow_dispatch:
 
 jobs:
