@@ -1,0 +1,10 @@
+{
+   "mcpServers": {
+      "ros-mcp-server": {
+         "command": "python",
+         "args": [
+            "/mnt/c/Users/sd37989/wsl/ros-mcp-server/server.py"
+         ]
+      }
+   }
+}

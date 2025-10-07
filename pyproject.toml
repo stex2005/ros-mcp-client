@@ -1,9 +1,30 @@
 [project]
 name = "ros-mcp-client"
 version = "0.1.0"
+description = "Connect AI Language Models with Robots on ROS using MCP"
+readme = "README.md"
 requires-python = ">=3.10"
+authors = [
+    { name = "Stefano Dalla Gasperina"},
+    { name = "Rohit John Varghese"},
+    { name = "Youngmok Yun"}
+]
+
+dependencies = [
+    "google-genai>=0.8.0",
+    "fastmcp>=2.11.3",
+    "jsonschema>=4.25.1",
+    "mcp[cli]>=1.13.0",
+    "python-dotenv>=1.0.0",
+]
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+packages = ["clients", "config"]
+
+
 

@@ -1,1 +1,1 @@
-# Utils package for ROS MCP Server
+# Utils package for ROS MCP Client
