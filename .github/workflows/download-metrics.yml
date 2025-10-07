@@ -34,7 +34,7 @@ jobs:
                > .metrics/releases.json
           
           # Extract download counts from releases
-          jq '[.[] | select(.assets | length > 0) | {tag_name: .tag_name, published_at: .published_at, assets: [.assets[] | {name: .name, download_count: .download_count}]}]' .metrics/releases.json > .metrics/downloads.json
+          jq '[.[] | {tag_name: .tag_name, published_at: .published_at, assets: [.assets[] | {name: .name, download_count: .download_count}]}]' .metrics/releases.json > .metrics/downloads.json
           
           echo "Download data summary:"
           jq '[.[] | {tag: .tag_name, date: .published_at, total_downloads: ([.assets[].download_count] | add)}]' .metrics/downloads.json
@@ -48,9 +48,13 @@ jobs:
             echo "date,release_tag,asset_name,downloads,total_release_downloads" > "$CSV"
           fi
 
-          jq -r '.[] | select(.assets | length > 0) | 
-            .assets[] as $asset | 
-            "\(.published_at[0:10]),\(.tag_name),\($asset.name),\($asset.download_count),\([.assets[].download_count] | add)"' \
+          jq -r '.[] | 
+            if (.assets | length > 0) then
+              .assets[] as $asset | 
+              "\(.published_at[0:10]),\(.tag_name),\($asset.name),\($asset.download_count),\([.assets[].download_count] | add)"
+            else
+              "\(.published_at[0:10]),\(.tag_name),,0,0"
+            end' \
             .metrics/downloads.json \
           | while IFS= read -r line; do
               echo "$line" >> "$CSV"
