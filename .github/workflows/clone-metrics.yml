@@ -1,6 +1,8 @@
 name: Track Clone Metrics via GitHub App
 
 on:
+  schedule:
+    - cron: "00 4 * * *"    # Daily at 04:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -10,7 +12,7 @@ jobs:
       contents: write
 
     steps:
-      - name: Check out repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Authenticate as GitHub App
@@ -65,5 +67,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add .metrics/clone_metrics.csv
-          git commit -m "Automated update: repository clone metrics [skip ci]" || echo "No new data to commit."
+          git commit -m "Automated update: repository clone metrics" || echo "No new data to commit."
+          git pull --rebase origin develop || true
           git push https://x-access-token:${TOKEN}@github.com/${{ github.repository }} HEAD
