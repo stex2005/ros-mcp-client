@@ -68,5 +68,5 @@ jobs:
 
           git add .metrics/view_metrics.csv
           git commit -m "Automated update: repository view metrics" || echo "No new data to commit."
-          git pull --rebase origin develop || true
-          git push https://x-access-token:${TOKEN}@github.com/${{ github.repository }} HEAD
+          git pull --rebase origin metrics || true
+          git push https://x-access-token:${TOKEN}@github.com/${{ github.repository }} HEAD:metrics
