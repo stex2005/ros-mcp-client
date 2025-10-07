@@ -8,11 +8,11 @@ import argparse
 import asyncio
 import json
 import os
-import sys
 import traceback
 
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
@@ -104,7 +104,8 @@ class TextOnlyClient:
                 break
 
             await self.session.send_client_content(
-                turns={"role": "user", "parts": [{"text": text or "."}]}, turn_complete=True
+                turns={"role": "user", "parts": [{"text": text or "."}]},
+                turn_complete=True,
             )
 
     async def handle_tool_call(self, tool_call):
@@ -228,12 +229,17 @@ class TextOnlyClient:
 
                 # Get available tools from MCP server
                 available_tools = await mcp_session.list_tools()
-                print(f"[Gemini] Loaded {len(available_tools.tools)} tools from MCP server")
+                print(
+                    f"[Gemini] Loaded {len(available_tools.tools)} tools from MCP server"
+                )
 
                 # Convert MCP tools to Gemini-compatible format
                 functional_tools = []
                 for tool in available_tools.tools:
-                    tool_description = {"name": tool.name, "description": tool.description}
+                    tool_description = {
+                        "name": tool.name,
+                        "description": tool.description,
+                    }
 
                     # Process tool parameters if they exist
                     if tool.inputSchema["properties"]:
@@ -269,7 +275,9 @@ class TextOnlyClient:
                             if param_type == "array" and "items" in param_schema:
                                 items_schema = param_schema["items"]
                                 if "type" in items_schema:
-                                    param_definition["items"] = {"type": items_schema["type"]}
+                                    param_definition["items"] = {
+                                        "type": items_schema["type"]
+                                    }
                                 else:
                                     # Default to object for complex array items
                                     param_definition["items"] = {"type": "object"}
@@ -280,9 +288,9 @@ class TextOnlyClient:
 
                         # Add required parameters list if specified
                         if "required" in tool.inputSchema:
-                            tool_description["parameters"]["required"] = tool.inputSchema[
-                                "required"
-                            ]
+                            tool_description["parameters"]["required"] = (
+                                tool.inputSchema["required"]
+                            )
 
                     functional_tools.append(tool_description)
 
@@ -298,14 +306,18 @@ class TextOnlyClient:
                 # Configure Gemini Live session
                 live_config = types.LiveConnectConfig(
                     response_modalities=[self.response_modality],
-                    system_instruction=types.Content(parts=[types.Part(text=system_instructions)]),
+                    system_instruction=types.Content(
+                        parts=[types.Part(text=system_instructions)]
+                    ),
                     tools=tools,
                 )
 
                 try:
                     # Start Gemini Live session and create task group
                     async with (
-                        client.aio.live.connect(model=MODEL, config=live_config) as session,
+                        client.aio.live.connect(
+                            model=MODEL, config=live_config
+                        ) as session,
                         asyncio.TaskGroup() as task_group,
                     ):
                         self.session = session
