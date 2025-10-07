@@ -14,6 +14,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: metrics
+          fetch-depth: 0
 
       - name: Authenticate as GitHub App
         id: generate_token
@@ -69,4 +72,4 @@ jobs:
           git add .metrics/view_metrics.csv
           git commit -m "Automated update: repository view metrics" || echo "No new data to commit."
           git pull --rebase origin metrics || true
-          git push https://x-access-token:${TOKEN}@github.com/${{ github.repository }} HEAD:metrics
+          git push https://x-access-token:${TOKEN}@github.com/${{ github.repository }} HEAD
