@@ -1,4 +1,4 @@
-# Gemini Live Text-Only Client for ROS MCP Server
+# Gemini Client for ROS MCP Server
 
 A simplified, text-only version of the Gemini Live client for controlling ROS robots through natural language commands. This version is optimized for WSL and environments where audio/video features are not needed.
 
@@ -16,21 +16,34 @@ A simplified, text-only version of the Gemini Live client for controlling ROS ro
 
 ```bash
 # Navigate to the gemini_live folder
-cd examples/2_gemini/gemini_live
+cd clients/gemini_live
 
 # Run the automated setup
 chmod +x setup_text_only.sh
 ./setup_text_only.sh
 ```
 
-### 2. Configure Environment
+### 2. Get Google API Key
+
+1. Go to [Google AI Studio](https://aistudio.google.com/)
+2. Sign in with your Google account
+3. Click "Get API key" and create a new key
+4. Copy the API key
+
+### 3. Configure Environment
 
 Create a `.env` file with your Google API key:
 ```bash
-echo "GOOGLE_API_KEY=your_google_api_key_here" > .env
+# Create .env file
+echo "GOOGLE_API_KEY=your_actual_api_key_here" > .env
+
+# Or edit manually
+nano .env
 ```
 
-### 3. Configure MCP Server
+**Important:** Replace `your_actual_api_key_here` with your real Google API key from step 2.
+
+### 4. Configure MCP Server
 
 Update `mcp_config.json` with the correct path to your ros-mcp-server:
 ```json

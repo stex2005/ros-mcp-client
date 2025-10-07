@@ -1,0 +1,17 @@
+{
+   "mcpServers": {
+     "ros-mcp-server": {
+       "name": "ROS-MCP Server (Linux/WSL)",
+       "transport": "stdio",
+       "command": "uv",
+       "args": [
+         "--directory",
+         "/mnt/c/Users/sd37989/wsl/ros-mcp-server",
+         "run",
+         "server.py",
+         "--transport=stdio"
+       ]
+     }
+   }
+ }
+ 

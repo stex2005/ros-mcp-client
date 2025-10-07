@@ -8,6 +8,7 @@ import argparse
 import asyncio
 import json
 import os
+import sys
 import traceback
 
 from dotenv import load_dotenv
@@ -32,7 +33,7 @@ You can help users control ROS robots through natural language commands.
 
 def load_mcp_config():
     """Load MCP server configuration from mcp_config.json file."""
-    config_path = os.path.join(os.path.dirname(__file__), "mcp_config.json")
+    config_path = os.path.join(os.path.dirname(__file__), "mcp.json")
 
     if not os.path.exists(config_path):
         raise FileNotFoundError(
@@ -63,9 +64,18 @@ server_params = StdioServerParameters(
     env=mcp_config.get("env"),
 )
 
+# Check for API key
+api_key = os.environ.get("GOOGLE_API_KEY")
+if not api_key:
+    print("Error: GOOGLE_API_KEY not found!")
+    print("   Please create a .env file with your Google API key:")
+    print("   echo 'GOOGLE_API_KEY=your_api_key_here' > .env")
+    print("   Get your API key from: https://aistudio.google.com/")
+    sys.exit(1)
+
 client = genai.Client(
     http_options={"api_version": "v1beta"},
-    api_key=os.environ.get("GOOGLE_API_KEY"),
+    api_key=api_key,
 )
 
 
