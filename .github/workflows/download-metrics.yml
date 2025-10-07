@@ -1,0 +1,72 @@
+name: Track Download Metrics via GitHub App
+
+on:
+  schedule:
+    - cron: "00 4 * * *"    # Daily at 04:00 UTC
+  workflow_dispatch:
+
+jobs:
+  track-download-metrics:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate as GitHub App
+        id: generate_token
+        uses: tibdex/github-app-token@v2.1.0
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Retrieve download data
+        env:
+          TOKEN: ${{ steps.generate_token.outputs.token }}
+        run: |
+          mkdir -p .metrics
+          echo "Fetching download data for ${{ github.repository }}..."
+          curl -s -H "Authorization: Bearer $TOKEN" \
+               -H "Accept: application/vnd.github+json" \
+               "https://api.github.com/repos/${{ github.repository }}/releases" \
+               > .metrics/releases.json
+          
+          # Extract download counts from releases
+          jq '[.[] | select(.assets | length > 0) | {tag_name: .tag_name, published_at: .published_at, assets: [.assets[] | {name: .name, download_count: .download_count}]}]' .metrics/releases.json > .metrics/downloads.json
+          
+          echo "Download data summary:"
+          jq '[.[] | {tag: .tag_name, date: .published_at, total_downloads: ([.assets[].download_count] | add)}]' .metrics/downloads.json
+
+      - name: Update unified download metrics CSV
+        run: |
+          mkdir -p .metrics
+          CSV=".metrics/download_metrics.csv"
+
+          if [ ! -f "$CSV" ]; then
+            echo "date,release_tag,asset_name,downloads,total_release_downloads" > "$CSV"
+          fi
+
+          jq -r '.[] | select(.assets | length > 0) | 
+            .assets[] as $asset | 
+            "\(.published_at[0:10]),\(.tag_name),\($asset.name),\($asset.download_count),\([.assets[].download_count] | add)"' \
+            .metrics/downloads.json \
+          | while IFS= read -r line; do
+              echo "$line" >> "$CSV"
+            done
+
+          echo "Updated metrics summary:"
+          tail -n 5 "$CSV"
+
+      - name: Commit and push results
+        env:
+          TOKEN: ${{ steps.generate_token.outputs.token }}
+        run: |
+          git config user.name "DownloadMetrics[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .metrics/download_metrics.csv
+          git commit -m "Automated update: repository download metrics" || echo "No new data to commit."
+          git pull --rebase origin develop || true
+          git push https://x-access-token:${TOKEN}@github.com/${{ github.repository }} HEAD
