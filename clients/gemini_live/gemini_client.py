@@ -32,12 +32,12 @@ You can help users control ROS robots through natural language commands.
 
 
 def load_mcp_config():
-    """Load MCP server configuration from mcp_config.json file."""
+    """Load MCP server configuration from mcp.json file."""
     config_path = os.path.join(os.path.dirname(__file__), "mcp.json")
 
     if not os.path.exists(config_path):
         raise FileNotFoundError(
-            f"mcp_config.json not found at {config_path}. "
+            f"mcp.json not found at {config_path}. "
             "Please create it following the README instructions."
         )
 
@@ -47,7 +47,7 @@ def load_mcp_config():
     # Extract ros-mcp-server configuration
     if "mcpServers" not in config or "ros-mcp-server" not in config["mcpServers"]:
         raise ValueError(
-            "Invalid mcp_config.json: missing 'mcpServers.ros-mcp-server' configuration"
+            "Invalid mcp.json: missing 'mcpServers.ros-mcp-server' configuration"
         )
 
     server_config = config["mcpServers"]["ros-mcp-server"]
@@ -67,8 +67,8 @@ server_params = StdioServerParameters(
 # Check for API key
 api_key = os.environ.get("GOOGLE_API_KEY")
 if not api_key:
-    print("Error: GOOGLE_API_KEY not found!")
-    print("   Please create a .env file with your Google API key:")
+    print("❌ Error: GOOGLE_API_KEY not found!")
+    print("📝 Please create a .env file with your Google API key:")
     print("   echo 'GOOGLE_API_KEY=your_api_key_here' > .env")
     print("   Get your API key from: https://aistudio.google.com/")
     sys.exit(1)
@@ -108,7 +108,7 @@ class TextOnlyClient:
         while True:
             text = await asyncio.to_thread(
                 input,
-                "🤖 message > ",
+                "message > ",
             )
             if text.lower() == "q":
                 break
@@ -190,7 +190,7 @@ class TextOnlyClient:
                         if part.text:
                             text_content = part.text
                             if first_text:
-                                print(f"\n🤖 > {text_content}", end="", flush=True)
+                                print(f"\nresponse > {text_content}", end="", flush=True)
                                 first_text = False
                             else:
                                 print(text_content, end="", flush=True)
@@ -200,7 +200,7 @@ class TextOnlyClient:
                 # Fallback: Handle text responses from Gemini (for backward compatibility)
                 if text_content := response.text:
                     if first_text:
-                        print(f"\n🤖 > {text_content}", end="", flush=True)
+                        print(f"\nresponse > {text_content}", end="", flush=True)
                         first_text = False
                     else:
                         print(text_content, end="", flush=True)
@@ -214,7 +214,7 @@ class TextOnlyClient:
             # Complete the response display
             if turn_text:
                 print()  # Add newline after response
-                print("🤖 message > ", end="", flush=True)  # Show next prompt
+                print("message > ", end="", flush=True)  # Show next prompt
 
     async def run(self):
         """
@@ -223,7 +223,7 @@ class TextOnlyClient:
         Connects to MCP server, configures tools, and starts all async tasks
         for text-based communication.
         """
-        print("[Gemini] Starting Gemini Live Text-Only Client...")
+        print("🚀 Starting Gemini Live Text-Only Client...")
         print("💡 Type 'q' to quit")
         print("=" * 50)
 
@@ -232,16 +232,14 @@ class TextOnlyClient:
             async with ClientSession(read, write) as mcp_session:
                 # Initialize the connection between client and server
                 await mcp_session.initialize()
-                print("[Gemini] Connected to MCP server")
+                print("✅ Connected to MCP server")
 
                 # Store MCP session for tool calling
                 self.mcp_session = mcp_session
 
                 # Get available tools from MCP server
                 available_tools = await mcp_session.list_tools()
-                print(
-                    f"[Gemini] Loaded {len(available_tools.tools)} tools from MCP server"
-                )
+                print(f"🔧 Loaded {len(available_tools.tools)} tools from MCP server")
 
                 # Convert MCP tools to Gemini-compatible format
                 functional_tools = []
@@ -331,8 +329,8 @@ class TextOnlyClient:
                         asyncio.TaskGroup() as task_group,
                     ):
                         self.session = session
-                        print("[Gemini] Connected to Gemini Live")
-                        print("[Gemini] Ready for robot control commands!")
+                        print("✅ Connected to Gemini Live")
+                        print("🎯 Ready for robot control commands!")
                         print("=" * 50)
 
                         # Start all async tasks
@@ -345,7 +343,7 @@ class TextOnlyClient:
 
                 except asyncio.CancelledError:
                     # Normal exit when user types 'q'
-                    print("\n[Gemini] Goodbye!")
+                    print("\nGoodbye!")
                     pass
                 except asyncio.ExceptionGroup as exception_group:
                     # Handle any errors that occurred in the task group
