@@ -1,0 +1,41 @@
+name: Ruff Lint & Format
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+
+jobs:
+  ruff:
+    name: Ruff Lint & Format
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.10","3.11","3.12"]
+
+    steps:
+      - name: 🧾 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: ⚡ Install Ruff (pinned version)
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ruff==0.6.2"
+
+      - name: 🔍 Run Ruff lint check
+        run: |
+          echo "Running Ruff lint..."
+          ruff check . || (echo "::error::Ruff linting failed. Run 'ruff check --fix .' locally to fix issues." && exit 1)
+
+      - name: 🎨 Verify Ruff formatting
+        run: |
+          echo "Verifying Ruff formatting..."
+          ruff format --check . || (echo "::error::Formatting issues detected. Run 'ruff format .' locally to fix them." && exit 1)
+
