@@ -1,4 +1,4 @@
-name: Track Clone Metrics via GitHub App
+name: Track View Metrics via GitHub App
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  clone-stats:
+  view-stats:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -35,36 +35,36 @@ jobs:
             git checkout -b metrics
           fi
 
-      - name: Fetch clone data
+      - name: Fetch view data
         env:
           TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
           mkdir -p .metrics
-          # Fetch clone metrics (contains both daily breakdown and 14-day totals)
+          # Fetch view metrics (contains both daily breakdown and 14-day totals)
           curl -s -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer $TOKEN" \
-              https://api.github.com/repos/${{ github.repository }}/traffic/clones \
-              > .metrics/clone_stats.json
+              https://api.github.com/repos/${{ github.repository }}/traffic/views \
+              > .metrics/view_stats.json
           
-          echo "Clone metrics:"
-          cat .metrics/clone_stats.json
+          echo "View metrics:"
+          cat .metrics/view_stats.json
         
       - name: Update daily metrics
         run: |
-          # Process each day from the clones array
+          # Process each day from the views array
           LAST_UPDATED=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
 
           # Create daily CSV with header if it doesn't exist
-          if [ ! -f .metrics/daily_clone_metrics.csv ]; then
-            echo "date,total_clones,unique_cloners,last_updated" > .metrics/daily_clone_metrics.csv
+          if [ ! -f .metrics/daily_view_metrics.csv ]; then
+            echo "date,total_views,unique_visitors,last_updated" > .metrics/daily_view_metrics.csv
           fi
 
           echo "📊 Processing daily metrics..."
-          jq -r '.clones[] | "\(.timestamp | split("T")[0]),\(.count),\(.uniques)"' .metrics/clone_stats.json | while IFS=',' read -r day_date count uniques; do
-            echo "Processing $day_date: $count clones, $uniques unique"
+          jq -r '.views[] | "\(.timestamp | split("T")[0]),\(.count),\(.uniques)"' .metrics/view_stats.json | while IFS=',' read -r day_date count uniques; do
+            echo "Processing $day_date: $count views, $uniques unique"
             
             # Check if this date already exists in the CSV
-            if grep -q "^$day_date" .metrics/daily_clone_metrics.csv; then
+            if grep -q "^$day_date" .metrics/daily_view_metrics.csv; then
               echo "📝 Updating existing entry for $day_date..."
               # Update existing entry
               awk -v date="$day_date" -v count="$count" -v uniques="$uniques" -v last_updated="$LAST_UPDATED" '
@@ -75,36 +75,36 @@ jobs:
                   next 
                 }
                 { print }
-              ' .metrics/daily_clone_metrics.csv > .metrics/daily_clone_metrics_temp.csv
-              mv .metrics/daily_clone_metrics_temp.csv .metrics/daily_clone_metrics.csv
+              ' .metrics/daily_view_metrics.csv > .metrics/daily_view_metrics_temp.csv
+              mv .metrics/daily_view_metrics_temp.csv .metrics/daily_view_metrics.csv
             else
               echo "➕ Adding new daily entry for $day_date..."
-              echo "$day_date,$count,$uniques,$LAST_UPDATED" >> .metrics/daily_clone_metrics.csv
+              echo "$day_date,$count,$uniques,$LAST_UPDATED" >> .metrics/daily_view_metrics.csv
             fi
           done
 
           echo "Daily metrics:"
-          tail -n 5 .metrics/daily_clone_metrics.csv
+          tail -n 5 .metrics/daily_view_metrics.csv
 
       - name: Update 14-day rolling metrics
         run: |
           # Process 14-day metrics
-          COUNT_14D=$(jq '.count' .metrics/clone_stats.json)
-          UNIQUES_14D=$(jq '.uniques' .metrics/clone_stats.json)
+          COUNT_14D=$(jq '.count' .metrics/view_stats.json)
+          UNIQUES_14D=$(jq '.uniques' .metrics/view_stats.json)
           DATE_ONLY=$(date -u +"%Y-%m-%d")
           LAST_UPDATED=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
 
           echo "📊 Processing 14-day metrics... for date: $DATE_ONLY"
-          echo "Processing values: $COUNT_14D clones, $UNIQUES_14D unique"
+          echo "Processing values: $COUNT_14D views, $UNIQUES_14D unique"
 
           # Create 14-day CSV with header if it doesn't exist
-          if [ ! -f .metrics/rolling_14d_clone_metrics.csv ]; then
-            echo "date,total_clones_14d,unique_cloners_14d,last_updated" > .metrics/rolling_14d_clone_metrics.csv
+          if [ ! -f .metrics/rolling_14d_view_metrics.csv ]; then
+            echo "date,total_views_14d,unique_visitors_14d,last_updated" > .metrics/rolling_14d_view_metrics.csv
             echo "📄 Created new 14-day rolling CSV file"
           fi
 
           # Check if today's date already exists in the 14-day CSV
-          if grep -q "^$DATE_ONLY" .metrics/rolling_14d_clone_metrics.csv; then
+          if grep -q "^$DATE_ONLY" .metrics/rolling_14d_view_metrics.csv; then
             echo "📝 Updating existing 14-day rolling entry for $DATE_ONLY..."
             # Update existing entry
             awk -v date="$DATE_ONLY" -v count="$COUNT_14D" -v uniques="$UNIQUES_14D" -v last_updated="$LAST_UPDATED" '
@@ -116,34 +116,34 @@ jobs:
               }
               { print }
               END { if (!updated) print date, count, uniques, last_updated }
-            ' .metrics/rolling_14d_clone_metrics.csv > .metrics/rolling_14d_clone_metrics_temp.csv
-            mv .metrics/rolling_14d_clone_metrics_temp.csv .metrics/rolling_14d_clone_metrics.csv
+            ' .metrics/rolling_14d_view_metrics.csv > .metrics/rolling_14d_view_metrics_temp.csv
+            mv .metrics/rolling_14d_view_metrics_temp.csv .metrics/rolling_14d_view_metrics.csv
             echo "✅ Updated existing entry"
           else
             echo "➕ Adding new 14-day rolling entry for $DATE_ONLY..."
-            echo "$DATE_ONLY,$COUNT_14D,$UNIQUES_14D,$LAST_UPDATED" >> .metrics/rolling_14d_clone_metrics.csv
+            echo "$DATE_ONLY,$COUNT_14D,$UNIQUES_14D,$LAST_UPDATED" >> .metrics/rolling_14d_view_metrics.csv
             echo "✅ Added new entry"
           fi
 
           echo "14-day rolling metrics:"
-          tail -n 5 .metrics/rolling_14d_clone_metrics.csv
+          tail -n 5 .metrics/rolling_14d_view_metrics.csv
 
       - name: Commit and push results
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
-          git config user.name "CloneMetricsBot[bot]"
+          git config user.name "ViewMetricsBot[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # Add both CSV files
-          git add .metrics/daily_clone_metrics.csv .metrics/rolling_14d_clone_metrics.csv
+          git add .metrics/daily_view_metrics.csv .metrics/rolling_14d_view_metrics.csv
           
           # Check if there are changes to commit
           if git diff --staged --quiet; then
             echo "ℹ️  No changes to commit - CSV data is up to date"
           else
             echo "📝 Committing changes..."
-            git commit -m "Automated update: repository clone metrics $(date)"
+            git commit -m "Automated update: repository view metrics $(date)"
             
             echo "🚀 Pushing to metrics branch..."
             git push --force-with-lease origin metrics
