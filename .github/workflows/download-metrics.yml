@@ -49,22 +49,22 @@ jobs:
           echo "Download metrics:"
           jq '[.[] | {tag: .tag_name, date: .published_at, total_downloads: ([.assets[].download_count] | add), assets_count: (.assets | length)}]' .metrics/releases.json
         
-      - name: Update daily metrics
+      - name: Update total download metrics
         run: |
           # Process each release from the releases array
           LAST_UPDATED=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
 
-          # Create daily CSV with header if it doesn't exist
-          if [ ! -f .metrics/daily_download_metrics.csv ]; then
-            echo "date,release_tag,total_downloads,last_updated" > .metrics/daily_download_metrics.csv
+          # Create total download CSV with header if it doesn't exist
+          if [ ! -f .metrics/total_download_metrics.csv ]; then
+            echo "date,release_tag,total_downloads,last_updated" > .metrics/total_download_metrics.csv
           fi
 
-          echo "📊 Processing daily metrics..."
+          echo "📊 Processing total download metrics..."
           jq -r '.[] | "\(.published_at[0:10]),\(.tag_name),\([.assets[].download_count] | add)"' .metrics/releases.json | while IFS=',' read -r release_date tag_name total_downloads; do
             echo "Processing $release_date: $tag_name - $total_downloads downloads"
             
             # Check if this release already exists in the CSV
-            if grep -q ",$tag_name," .metrics/daily_download_metrics.csv; then
+            if grep -q ",$tag_name," .metrics/total_download_metrics.csv; then
               echo "📝 Updating existing entry for $tag_name..."
               # Update existing entry
               awk -v tag="$tag_name" -v downloads="$total_downloads" -v last_updated="$LAST_UPDATED" '
@@ -75,16 +75,16 @@ jobs:
                   next 
                 }
                 { print }
-              ' .metrics/daily_download_metrics.csv > .metrics/daily_download_metrics_temp.csv
-              mv .metrics/daily_download_metrics_temp.csv .metrics/daily_download_metrics.csv
+              ' .metrics/total_download_metrics.csv > .metrics/total_download_metrics_temp.csv
+              mv .metrics/total_download_metrics_temp.csv .metrics/total_download_metrics.csv
             else
               echo "➕ Adding new download entry for $tag_name..."
-              echo "$release_date,$tag_name,$total_downloads,$LAST_UPDATED" >> .metrics/daily_download_metrics.csv
+              echo "$release_date,$tag_name,$total_downloads,$LAST_UPDATED" >> .metrics/total_download_metrics.csv
             fi
           done
 
-          echo "Daily metrics:"
-          tail -n 5 .metrics/daily_download_metrics.csv
+          echo "Total download metrics:"
+          tail -n 5 .metrics/total_download_metrics.csv
 
       - name: Commit and push results
         env:
@@ -94,7 +94,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # Add CSV file
-          git add .metrics/daily_download_metrics.csv
+          git add .metrics/total_download_metrics.csv
           
           # Check if there are changes to commit
           if git diff --staged --quiet; then
