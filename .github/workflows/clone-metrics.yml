@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for proper branch operations
 
       - name: Generate GitHub App token
         id: generate_token
@@ -20,29 +22,80 @@ jobs:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
 
+      - name: Switch to metrics branch
+        run: |
+          # Checkout or create metrics branch
+          if git show-ref --verify --quiet refs/remotes/origin/metrics; then
+            echo "📋 Checking out existing metrics branch..."
+            git checkout -b metrics origin/metrics || git checkout metrics
+          else
+            echo "🆕 Creating new metrics branch..."
+            git checkout -b metrics
+          fi
+
       - name: Fetch clone data via GitHub App
         env:
           TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
           mkdir -p .metrics
+          # Fetch 14-day rolling metrics
           curl -s -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer $TOKEN" \
               https://api.github.com/repos/${{ github.repository }}/traffic/clones \
-              > .metrics/clone_stats.json
-          cat .metrics/clone_stats.json
+              > .metrics/clone_stats_14d.json
+          
+          # Fetch single day metrics (last 24 hours)
+          curl -s -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $TOKEN" \
+              https://api.github.com/repos/${{ github.repository }}/traffic/clones?per=day \
+              > .metrics/clone_stats_1d.json
+          
+          echo "14-day metrics:"
+          cat .metrics/clone_stats_14d.json
+          echo "1-day metrics:"
+          cat .metrics/clone_stats_1d.json
         
-      - name: Append to CSV log
+      - name: Update CSV log
         run: |
           mkdir -p .metrics
-          COUNT=$(jq '.count' .metrics/clone_stats.json)
-          UNIQUES=$(jq '.uniques' .metrics/clone_stats.json)
+          
+          # Extract 14-day metrics
+          COUNT_14D=$(jq '.count' .metrics/clone_stats_14d.json)
+          UNIQUES_14D=$(jq '.uniques' .metrics/clone_stats_14d.json)
+          
+          # Extract 1-day metrics (get the most recent day's data)
+          COUNT_1D=$(jq '.clones[0].count // 0' .metrics/clone_stats_1d.json)
+          UNIQUES_1D=$(jq '.clones[0].uniques // 0' .metrics/clone_stats_1d.json)
+          
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          DATE_ONLY=$(date -u +"%Y-%m-%d")
 
+          # Create CSV with header if it doesn't exist
           if [ ! -f .metrics/clone_metrics.csv ]; then
-            echo "date,total_clones_14d,unique_cloners_14d" > .metrics/clone_metrics.csv
+            echo "date,total_clones_1d,unique_cloners_1d,total_clones_14d,unique_cloners_14d,last_updated" > .metrics/clone_metrics.csv
           fi
 
-          echo "$DATE,$COUNT,$UNIQUES" >> .metrics/clone_metrics.csv
+          # Check if today's date already exists in the CSV
+          if grep -q "^$DATE_ONLY" .metrics/clone_metrics.csv; then
+            echo "📝 Updating existing entry for $DATE_ONLY..."
+            # Create temporary file with updated data
+            awk -v date="$DATE_ONLY" -v count1d="$COUNT_1D" -v uniques1d="$UNIQUES_1D" -v count14d="$COUNT_14D" -v uniques14d="$UNIQUES_14D" -v last_updated="$DATE" '
+              BEGIN { FS=","; OFS="," }
+              /^[0-9]{4}-[0-9]{2}-[0-9]{2}/ && $1 == date { 
+                print $1, count1d, uniques1d, count14d, uniques14d, last_updated; 
+                updated=1; 
+                next 
+              }
+              { print }
+              END { if (!updated) print date, count1d, uniques1d, count14d, uniques14d, last_updated }
+            ' .metrics/clone_metrics.csv > .metrics/clone_metrics_temp.csv
+            mv .metrics/clone_metrics_temp.csv .metrics/clone_metrics.csv
+          else
+            echo "➕ Adding new entry for $DATE_ONLY..."
+            echo "$DATE_ONLY,$COUNT_1D,$UNIQUES_1D,$COUNT_14D,$UNIQUES_14D,$DATE" >> .metrics/clone_metrics.csv
+          fi
+
+          echo "Latest metrics:"
           tail -n 3 .metrics/clone_metrics.csv
 
       - name: Commit and push results
@@ -51,7 +104,17 @@ jobs:
         run: |
           git config user.name "CloneMetricsBot[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Add the CSV file
           git add .metrics/clone_metrics.csv
-          git commit -m "Update Clone Metrics" || echo "No changes to commit"
-          git push
-        
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "ℹ️  No changes to commit - CSV data is up to date"
+          else
+            echo "📝 Committing changes..."
+            git commit -m "Automated update: repository clone metrics $(date)"
+            
+            echo "🚀 Pushing to metrics branch..."
+            git push --force-with-lease origin metrics
+          fi
