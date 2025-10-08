@@ -8,24 +8,23 @@ set -e  # Exit on any error
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT_DIR="$SCRIPT_DIR"
 
-echo "🔧 ROS MCP Client Setup"
-echo "======================="
-echo "📁 Client directory: $CLIENT_DIR"
+echo "ROS MCP Client Setup"
+echo "===================="
+echo "Client directory: $CLIENT_DIR"
 
 # Detect operating system
 OS="$(uname -s)"
 case "${OS}" in
     Linux*)     MACHINE=Linux;;
     Darwin*)    MACHINE=Mac;;
-    CYGWIN*)    MACHINE=Cygwin;;
-    MINGW*)     MACHINE=MinGw;;
-    *)          MACHINE="UNKNOWN:${OS}"
+    CYGWIN*|MINGW*)    MACHINE=Windows;;
+    *)          echo "ERROR: Unsupported operating system: ${OS}"; exit 1;;
 esac
 
-echo "🖥️  Detected OS: $MACHINE"
+echo "Detected OS: $MACHINE"
 
 # Install system dependencies based on OS
-echo "📦 Installing system dependencies..."
+echo "Installing system dependencies..."
 case $MACHINE in
     Linux)
         if command -v apt-get &> /dev/null; then
@@ -36,32 +35,32 @@ case $MACHINE in
         elif command -v pacman &> /dev/null; then
             sudo pacman -S --noconfirm python python-virtualenv
         else
-            echo "⚠️  Unknown Linux package manager. Please install python3-dev and python3-venv manually."
+            echo "WARNING: Unknown Linux package manager. Please install python3-dev and python3-venv manually."
         fi
         ;;
     Mac)
         # Check if Homebrew is installed
         if command -v brew &> /dev/null; then
-            echo "🍺 Using Homebrew to install dependencies..."
+            echo "Using Homebrew to install dependencies..."
             brew install python@3.10 || brew install python@3.11 || brew install python@3.12
         else
-            echo "⚠️  Homebrew not found. Please install Python 3.10+ manually or install Homebrew first."
+            echo "WARNING: Homebrew not found. Please install Python 3.10+ manually or install Homebrew first."
             echo "   Visit: https://brew.sh/"
         fi
         ;;
-    *)
-        echo "⚠️  Unsupported OS: $MACHINE"
-        echo "   Please ensure Python 3.10+ is installed manually."
+    Windows)
+        echo "Windows detected. Please ensure Python 3.10+ is installed."
+        echo "   Visit: https://www.python.org/downloads/"
         ;;
 esac
 
 # Change to project root for dependency installation
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-echo "📁 Project root: $PROJECT_ROOT"
+echo "Project root: $PROJECT_ROOT"
 cd "$PROJECT_ROOT"
 
 # Install Python dependencies using uv
-echo "🐍 Installing Python dependencies..."
+echo "Installing Python dependencies..."
 if command -v uv &> /dev/null; then
     echo "Using uv for dependency management..."
     uv sync
@@ -73,29 +72,29 @@ fi
 # Create .env file in the client directory
 ENV_FILE="$PROJECT_ROOT/.env"
 if [ ! -f "$ENV_FILE" ]; then
-    echo "📝 Creating .env template in $CLIENT_DIR..."
+    echo "Creating .env template in $CLIENT_DIR..."
     cat > "$ENV_FILE" << EOF
 # Google API Key for Gemini
 # Get your API key from: https://aistudio.google.com/
 GOOGLE_API_KEY=your_google_api_key_here
 EOF
-    echo "⚠️  Please edit $ENV_FILE and add your Google API key"
+    echo "WARNING: Please edit $ENV_FILE and add your Google API key"
 else
-    echo "✅ .env file already exists in $CLIENT_DIR"
+    echo ".env file already exists in $CLIENT_DIR"
 fi
 
 echo ""
-echo "✅ Setup complete!"
+echo "Setup complete!"
 echo ""
-echo "📝 Next steps:"
+echo "Next steps:"
 echo "1. Add your Google API key to $ENV_FILE"
 echo "2. Verify mcp_config.json points to your ros-mcp-server"
 case $MACHINE in
     Mac|Linux)
         echo "3. Run: cd $CLIENT_DIR && uv run gemini_client.py"
         ;;
-    *)
-        echo "3. Run: cd $CLIENT_DIR && python gemini_client.py"
+    Windows)
+        echo "3. Run: cd $CLIENT_DIR && python3 gemini_client.py"
         ;;
 esac
 echo ""
@@ -103,22 +102,23 @@ echo ""
 # Platform-specific notes
 case $MACHINE in
     Mac)
-        echo "🍎 macOS Notes:"
-        echo "- If you encounter permission issues, you may need to run with 'python3' instead of 'python'"
+        echo "macOS Notes:"
         echo "- Ensure Xcode Command Line Tools are installed: xcode-select --install"
         ;;
     Linux)
         # Check if running in WSL
         if grep -qi microsoft /proc/version 2>/dev/null; then
-            echo "� WSL Notes:"
+            echo "WSL Notes:"
             echo "- This client runs in text-only mode (no audio/video)"
             echo "- Use WSL paths in mcp_config.json (e.g., /mnt/c/Users/...)"
         else
-            echo "🐧 Linux Notes:"
+            echo "Linux Notes:"
             echo "- Make sure your user has proper permissions for the project directory"
         fi
         ;;
-    *)
-        echo "⚠️  Platform-specific notes not available for $MACHINE"
+    Windows)
+        echo "Windows Notes:"
+        echo "- Use Git Bash or WSL for the best experience"
+        echo "- Ensure Python is added to your PATH environment variable"
         ;;
 esac
