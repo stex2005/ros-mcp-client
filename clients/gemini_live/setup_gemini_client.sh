@@ -71,7 +71,7 @@ else
 fi
 
 # Create .env file in the client directory
-ENV_FILE="$CLIENT_DIR/.env"
+ENV_FILE="$PROJECT_ROOT/.env"
 if [ ! -f "$ENV_FILE" ]; then
     echo "📝 Creating .env template in $CLIENT_DIR..."
     cat > "$ENV_FILE" << EOF
