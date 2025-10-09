@@ -1,9 +1,9 @@
-name: Track Clone Metrics via GitHub App
+name: Track Clone Metrics
 
 on:
-  schedule:
-    - cron: '30 * * * *'  # Run every hour at minute 30
   workflow_dispatch:
+  schedule:
+    - cron: '0 8 * * *'  # Run every day at 8:00 AM UTC
 
 jobs:
   clone-stats:
@@ -41,10 +41,21 @@ jobs:
         run: |
           mkdir -p .metrics
           # Fetch clone metrics (contains both daily breakdown and 14-day totals)
-          curl -s -H "Accept: application/vnd.github+json" \
+          echo "🔍 Fetching clone metrics..."
+          if ! curl -s -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer $TOKEN" \
               https://api.github.com/repos/${{ github.repository }}/traffic/clones \
-              > .metrics/clone_stats.json
+              > .metrics/clone_stats.json; then
+            echo "❌ Failed to fetch clone metrics"
+            exit 1
+          fi
+          
+          # Validate JSON response
+          if ! jq empty .metrics/clone_stats.json 2>/dev/null; then
+            echo "❌ Invalid JSON response from API"
+            cat .metrics/clone_stats.json
+            exit 1
+          fi
           
           echo "Clone metrics:"
           cat .metrics/clone_stats.json
