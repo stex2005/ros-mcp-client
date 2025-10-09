@@ -1,9 +1,10 @@
 name: Track Download Metrics via GitHub App
 
 on:
-  schedule:
-    - cron: '30 * * * *'  # Run every hour at minute 30
   workflow_dispatch:
+  workflow_run:
+    workflows: [Track View Metrics]
+    types: [completed]
 
 jobs:
   download-stats:
@@ -41,12 +42,23 @@ jobs:
         run: |
           mkdir -p .metrics
           # Fetch download metrics from releases
-          curl -s -H "Accept: application/vnd.github+json" \
+          echo "🔍 Fetching download metrics..."
+          if ! curl -s -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer $TOKEN" \
               "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100" \
-              > .metrics/releases.json
+              > .metrics/releases.json; then
+            echo "❌ Failed to fetch download metrics"
+            exit 1
+          fi
           
-          echo "Download metrics:"
+          # Validate JSON response
+          if ! jq empty .metrics/releases.json 2>/dev/null; then
+            echo "❌ Invalid JSON response from API"
+            cat .metrics/releases.json
+            exit 1
+          fi
+          
+          echo "✅ Download metrics fetched successfully:"
           jq '[.[] | {tag: .tag_name, date: .published_at, total_downloads: ([.assets[].download_count] | add), assets_count: (.assets | length)}]' .metrics/releases.json
         
       - name: Update total download metrics
