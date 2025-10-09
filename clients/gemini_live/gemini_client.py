@@ -31,72 +31,92 @@ You can help users control ROS robots through natural language commands.
 """
 
 
-def load_mcp_config():
-    """Load MCP server configuration from mcp.json file."""
-    config_path = os.path.join(os.path.dirname(__file__), "mcp.json")
-
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(
-            f"mcp.json not found at {config_path}. "
-            "Please create it following the README instructions."
-        )
-
-    with open(config_path, "r") as f:
-        config = json.load(f)
-
-    # Extract ros-mcp-server configuration
-    if "mcpServers" not in config or "ros-mcp-server" not in config["mcpServers"]:
-        raise ValueError(
-            "Invalid mcp.json: missing 'mcpServers.ros-mcp-server' configuration"
-        )
-
-    server_config = config["mcpServers"]["ros-mcp-server"]
-    return server_config
-
-
-# Load server configuration
-mcp_config = load_mcp_config()
-
-# Create server parameters for stdio connection
-server_params = StdioServerParameters(
-    command=mcp_config["command"],
-    args=mcp_config["args"],
-    env=mcp_config.get("env"),
-)
-
-# Check for API key
-api_key = os.environ.get("GOOGLE_API_KEY")
-if not api_key:
-    print("❌ Error: GOOGLE_API_KEY not found!")
-    print("📝 Please create a .env file with your Google API key:")
-    print("   echo 'GOOGLE_API_KEY=your_api_key_here' > .env")
-    print("   Get your API key from: https://aistudio.google.com/")
-    sys.exit(1)
-
-client = genai.Client(
-    http_options={"api_version": "v1beta"},
-    api_key=api_key,
-)
-
-
-class TextOnlyClient:
+class GeminiROSClient:
     """
-    Text-only Gemini Live client for ROS robot control.
-
-    Provides a simple interface for controlling ROS robots through
-    natural language without audio or video features.
+    Unified Gemini Live client for ROS robot control.
+    Handles configuration, MCP connection, and Gemini communication in one class.
     """
 
     def __init__(self, response_modality=DEFAULT_RESPONSE_MODALITY):
-        """
-        Initialize the text-only client.
-
-        Args:
-            response_modality: Response format from Gemini ("TEXT" or "AUDIO")
-        """
+        """Initialize the client with configuration and API setup."""
         self.response_modality = response_modality
         self.session = None
         self.mcp_session = None
+
+        # Load configuration
+        self._load_config()
+        self._setup_api_client()
+
+    def _load_config(self):
+        """Load and validate MCP configuration."""
+        config_path = "mcp.json"
+        if not os.path.exists(config_path):
+            raise FileNotFoundError(f"mcp.json not found at {config_path}")
+
+        with open(config_path, "r") as f:
+            config = json.load(f)
+
+        if "mcpServers" not in config or "ros-mcp-server" not in config["mcpServers"]:
+            raise ValueError("Invalid mcp.json: missing 'mcpServers.ros-mcp-server'")
+
+        self.server_config = config["mcpServers"]["ros-mcp-server"]
+
+        # Create server parameters for MCP connection
+        self.server_params = StdioServerParameters(
+            command=self.server_config["command"], args=self.server_config["args"]
+        )
+
+    def _setup_api_client(self):
+        """Setup Gemini API client with authentication."""
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        if not api_key:
+            print("Error: GOOGLE_API_KEY not found!")
+            print("Please create a .env file with your Google API key")
+            sys.exit(1)
+
+        print("API key loaded successfully")
+        self.client = genai.Client(
+            http_options={"api_version": "v1beta"},
+            api_key=api_key,
+        )
+
+    def _convert_mcp_tool(self, tool):
+        """Convert a single MCP tool to Gemini format."""
+        tool_description = {"name": tool.name, "description": tool.description}
+
+        if tool.inputSchema.get("properties"):
+            tool_description["parameters"] = {
+                "type": tool.inputSchema["type"],
+                "properties": {},
+            }
+
+            for param_name, param_schema in tool.inputSchema["properties"].items():
+                param_type = self._get_param_type(param_schema)
+                param_def = {"type": param_type, "description": ""}
+
+                if param_type == "array" and "items" in param_schema:
+                    param_def["items"] = {
+                        "type": param_schema["items"].get("type", "object")
+                    }
+
+                tool_description["parameters"]["properties"][param_name] = param_def
+
+            if "required" in tool.inputSchema:
+                tool_description["parameters"]["required"] = tool.inputSchema[
+                    "required"
+                ]
+
+        return tool_description
+
+    def _get_param_type(self, param_schema):
+        """Extract parameter type from schema, handling anyOf unions."""
+        if "type" in param_schema:
+            return param_schema["type"]
+        elif "anyOf" in param_schema:
+            for type_option in param_schema["anyOf"]:
+                if type_option.get("type") != "null":
+                    return type_option["type"]
+        return "string"  # fallback
 
     async def send_text(self):
         """
@@ -230,7 +250,7 @@ class TextOnlyClient:
         print("=" * 50)
 
         # Connect to MCP server using stdio
-        async with stdio_client(server_params) as (read, write):
+        async with stdio_client(self.server_params) as (read, write):
             async with ClientSession(read, write) as mcp_session:
                 # Initialize the connection between client and server
                 await mcp_session.initialize()
@@ -244,65 +264,9 @@ class TextOnlyClient:
                 print(f"🔧 Loaded {len(available_tools.tools)} tools from MCP server")
 
                 # Convert MCP tools to Gemini-compatible format
-                functional_tools = []
-                for tool in available_tools.tools:
-                    tool_description = {
-                        "name": tool.name,
-                        "description": tool.description,
-                    }
-
-                    # Process tool parameters if they exist
-                    if tool.inputSchema["properties"]:
-                        tool_description["parameters"] = {
-                            "type": tool.inputSchema["type"],
-                            "properties": {},
-                        }
-
-                        # Convert each parameter to Gemini format
-                        for param_name in tool.inputSchema["properties"]:
-                            param_schema = tool.inputSchema["properties"][param_name]
-
-                            # Handle direct type or anyOf union types
-                            if "type" in param_schema:
-                                param_type = param_schema["type"]
-                            elif "anyOf" in param_schema:
-                                # For anyOf, use the first non-null type
-                                param_type = "string"  # default fallback
-                                for type_option in param_schema["anyOf"]:
-                                    if type_option.get("type") != "null":
-                                        param_type = type_option["type"]
-                                        break
-                            else:
-                                param_type = "string"  # Fallback default
-
-                            # Build parameter definition
-                            param_definition = {
-                                "type": param_type,
-                                "description": "",
-                            }
-
-                            # Handle array types that need items specification
-                            if param_type == "array" and "items" in param_schema:
-                                items_schema = param_schema["items"]
-                                if "type" in items_schema:
-                                    param_definition["items"] = {
-                                        "type": items_schema["type"]
-                                    }
-                                else:
-                                    # Default to object for complex array items
-                                    param_definition["items"] = {"type": "object"}
-
-                            tool_description["parameters"]["properties"][param_name] = (
-                                param_definition
-                            )
-
-                        # Add required parameters list if specified
-                        if "required" in tool.inputSchema:
-                            tool_description["parameters"]["required"] = (
-                                tool.inputSchema["required"]
-                            )
-
-                    functional_tools.append(tool_description)
+                functional_tools = [
+                    self._convert_mcp_tool(tool) for tool in available_tools.tools
+                ]
 
                 # Configure Gemini Live tools (MCP tools + built-in capabilities)
                 tools = [
@@ -325,7 +289,7 @@ class TextOnlyClient:
                 try:
                     # Start Gemini Live session and create task group
                     async with (
-                        client.aio.live.connect(
+                        self.client.aio.live.connect(
                             model=MODEL, config=live_config
                         ) as session,
                         asyncio.TaskGroup() as task_group,
@@ -367,7 +331,7 @@ def main():
     args = parser.parse_args()
 
     # Initialize and run the client
-    client = TextOnlyClient(response_modality=args.responses)
+    client = GeminiROSClient(response_modality=args.responses)
     asyncio.run(client.run())
 
 
