@@ -1,9 +1,10 @@
-name: Track View Metrics via GitHub App
+name: Track View Metrics
 
 on:
-  schedule:
-    - cron: '30 * * * *'  # Run every hour at minute 30
   workflow_dispatch:
+  workflow_run:
+    workflows: [Track Clone Metrics]
+    types: [completed]
 
 jobs:
   view-stats:
@@ -41,12 +42,23 @@ jobs:
         run: |
           mkdir -p .metrics
           # Fetch view metrics (contains both daily breakdown and 14-day totals)
-          curl -s -H "Accept: application/vnd.github+json" \
+          echo "🔍 Fetching view metrics..."
+          if ! curl -s -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer $TOKEN" \
               https://api.github.com/repos/${{ github.repository }}/traffic/views \
-              > .metrics/view_stats.json
+              > .metrics/view_stats.json; then
+            echo "❌ Failed to fetch view metrics"
+            exit 1
+          fi
           
-          echo "View metrics:"
+          # Validate JSON response
+          if ! jq empty .metrics/view_stats.json 2>/dev/null; then
+            echo "❌ Invalid JSON response from API"
+            cat .metrics/view_stats.json
+            exit 1
+          fi
+          
+          echo "✅ View metrics fetched successfully:"
           cat .metrics/view_stats.json
         
       - name: Update daily metrics
