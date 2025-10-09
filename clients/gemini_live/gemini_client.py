@@ -42,7 +42,7 @@ class GeminiROSClient:
         self.response_modality = response_modality
         self.session = None
         self.mcp_session = None
-        
+
         # Load configuration
         self._load_config()
         self._setup_api_client()
@@ -60,11 +60,10 @@ class GeminiROSClient:
             raise ValueError("Invalid mcp.json: missing 'mcpServers.ros-mcp-server'")
 
         self.server_config = config["mcpServers"]["ros-mcp-server"]
-        
+
         # Create server parameters for MCP connection
         self.server_params = StdioServerParameters(
-            command=self.server_config["command"],
-            args=self.server_config["args"]
+            command=self.server_config["command"], args=self.server_config["args"]
         )
 
     def _setup_api_client(self):
@@ -74,7 +73,7 @@ class GeminiROSClient:
             print("Error: GOOGLE_API_KEY not found!")
             print("Please create a .env file with your Google API key")
             sys.exit(1)
-        
+
         print("API key loaded successfully")
         self.client = genai.Client(
             http_options={"api_version": "v1beta"},
@@ -84,25 +83,29 @@ class GeminiROSClient:
     def _convert_mcp_tool(self, tool):
         """Convert a single MCP tool to Gemini format."""
         tool_description = {"name": tool.name, "description": tool.description}
-        
+
         if tool.inputSchema.get("properties"):
             tool_description["parameters"] = {
                 "type": tool.inputSchema["type"],
                 "properties": {},
             }
-            
+
             for param_name, param_schema in tool.inputSchema["properties"].items():
                 param_type = self._get_param_type(param_schema)
                 param_def = {"type": param_type, "description": ""}
-                
+
                 if param_type == "array" and "items" in param_schema:
-                    param_def["items"] = {"type": param_schema["items"].get("type", "object")}
-                
+                    param_def["items"] = {
+                        "type": param_schema["items"].get("type", "object")
+                    }
+
                 tool_description["parameters"]["properties"][param_name] = param_def
-            
+
             if "required" in tool.inputSchema:
-                tool_description["parameters"]["required"] = tool.inputSchema["required"]
-        
+                tool_description["parameters"]["required"] = tool.inputSchema[
+                    "required"
+                ]
+
         return tool_description
 
     def _get_param_type(self, param_schema):
@@ -261,7 +264,9 @@ class GeminiROSClient:
                 print(f"🔧 Loaded {len(available_tools.tools)} tools from MCP server")
 
                 # Convert MCP tools to Gemini-compatible format
-                functional_tools = [self._convert_mcp_tool(tool) for tool in available_tools.tools]
+                functional_tools = [
+                    self._convert_mcp_tool(tool) for tool in available_tools.tools
+                ]
 
                 # Configure Gemini Live tools (MCP tools + built-in capabilities)
                 tools = [
