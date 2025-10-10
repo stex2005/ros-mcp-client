@@ -29,7 +29,11 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.types import ImageContent, TextContent
-from nat.authentication.interfaces import AuthenticatedContext, AuthFlowType, AuthProviderBase
+from nat.authentication.interfaces import (
+    AuthenticatedContext,
+    AuthFlowType,
+    AuthProviderBase,
+)
 from nat.plugins.mcp.exception_handler import (
     convert_to_mcp_error,
     format_mcp_error,
@@ -65,7 +69,9 @@ class AuthAdapter(httpx.Auth):
                 # Get auth headers from the NAT auth provider:
                 # 1. If discovery is yet to done this will return None and request will be sent without auth header.
                 # 2. If discovery is done, this will return the auth header from cache if the token is still valid
-                auth_headers = await self._get_auth_headers(request=request, response=None)
+                auth_headers = await self._get_auth_headers(
+                    request=request, response=None
+                )
                 request.headers.update(auth_headers)
             except Exception as e:
                 logger.info("Failed to get auth headers: %s", e)
@@ -88,7 +94,9 @@ class AuthAdapter(httpx.Auth):
                     self.is_authenticating = True
                     logger.debug("Starting authentication flow due to 401 response")
 
-                    auth_headers = await self._get_auth_headers(request=request, response=response)
+                    auth_headers = await self._get_auth_headers(
+                        request=request, response=response
+                    )
                     request.headers.update(auth_headers)
                     yield request  # Retry the request
                 except Exception as e:
@@ -101,7 +109,9 @@ class AuthAdapter(httpx.Auth):
         return
 
     async def _get_auth_headers(
-        self, request: httpx.Request | None = None, response: httpx.Response | None = None
+        self,
+        request: httpx.Request | None = None,
+        response: httpx.Response | None = None,
     ) -> dict[str, str]:
         """Get authentication headers from the NAT auth provider."""
         try:
@@ -113,7 +123,9 @@ class AuthAdapter(httpx.Auth):
             # Check if we have BearerTokenCred
             from nat.data_models.authentication import BearerTokenCred
 
-            if auth_result.credentials and isinstance(auth_result.credentials[0], BearerTokenCred):
+            if auth_result.credentials and isinstance(
+                auth_result.credentials[0], BearerTokenCred
+            ):
                 token = auth_result.credentials[0].token.get_secret_value()
                 return {"Authorization": f"Bearer {token}"}
             else:
@@ -154,7 +166,9 @@ class MCPBaseClient(ABC):
         self._tools = None
         self._transport = transport.lower()
         if self._transport not in ["sse", "stdio", "streamable-http"]:
-            raise ValueError("transport must be either 'sse', 'stdio' or 'streamable-http'")
+            raise ValueError(
+                "transport must be either 'sse', 'stdio' or 'streamable-http'"
+            )
 
         self._exit_stack: AsyncExitStack | None = None
         self._session: ClientSession | None = None  # Main session
@@ -167,7 +181,9 @@ class MCPBaseClient(ABC):
         effective_user_id = user_id or (
             auth_provider.config.default_user_id if auth_provider else None
         )
-        self._httpx_auth = AuthAdapter(auth_provider, effective_user_id) if auth_provider else None
+        self._httpx_auth = (
+            AuthAdapter(auth_provider, effective_user_id) if auth_provider else None
+        )
 
         self._tool_call_timeout = tool_call_timeout
         self._auth_flow_timeout = auth_flow_timeout
@@ -189,12 +205,16 @@ class MCPBaseClient(ABC):
 
     async def __aenter__(self):
         if self._exit_stack:
-            raise RuntimeError("MCPBaseClient already initialized. Use async with to initialize.")
+            raise RuntimeError(
+                "MCPBaseClient already initialized. Use async with to initialize."
+            )
 
         self._exit_stack = AsyncExitStack()
 
         # Establish connection with httpx.Auth
-        self._session = await self._exit_stack.enter_async_context(self.connect_to_server())
+        self._session = await self._exit_stack.enter_async_context(
+            self.connect_to_server()
+        )
 
         self._initial_connection = True
         self._connection_established = True
@@ -251,14 +271,19 @@ class MCPBaseClient(ABC):
                     self._tools = None
 
                     logger.info(
-                        "Reconnected to MCP server (%s) on attempt %d", self.server_name, attempt
+                        "Reconnected to MCP server (%s) on attempt %d",
+                        self.server_name,
+                        attempt,
                     )
                     return
 
                 except Exception as e:
                     last_error = e
                     logger.warning(
-                        "Reconnect attempt %d failed for %s: %s", attempt, self.server_name, e
+                        "Reconnect attempt %d failed for %s: %s",
+                        attempt,
+                        self.server_name,
+                        e,
                     )
                     await asyncio.sleep(min(backoff, self._reconnect_max_backoff))
                     backoff = min(backoff * 2, self._reconnect_max_backoff)
@@ -296,7 +321,9 @@ class MCPBaseClient(ABC):
                 try:
                     await self._reconnect()
                 except Exception as reconnect_err:
-                    logger.error("MCP Client reconnect attempt failed: %s", reconnect_err)
+                    logger.error(
+                        "MCP Client reconnect attempt failed: %s", reconnect_err
+                    )
                     raise
                 return await coro()
             raise
@@ -338,7 +365,8 @@ class MCPBaseClient(ABC):
             timeout = self._tool_call_timeout if has_token else self._auth_flow_timeout
             if not has_token:
                 logger.debug(
-                    "Using extended timeout (%s) for potential interactive authentication", timeout
+                    "Using extended timeout (%s) for potential interactive authentication",
+                    timeout,
                 )
             return timeout
         else:
@@ -397,7 +425,9 @@ class MCPBaseClient(ABC):
             MCPToolNotFoundError: If no tool is available with that name.
         """
         if not self._exit_stack:
-            raise RuntimeError("MCPBaseClient not initialized. Use async with to initialize.")
+            raise RuntimeError(
+                "MCPBaseClient not initialized. Use async with to initialize."
+            )
 
         if not self._tools:
             self._tools = await self.get_tools()
@@ -407,9 +437,13 @@ class MCPBaseClient(ABC):
             raise MCPToolNotFoundError(tool_name, self.server_name)
         return tool
 
-    def set_user_auth_callback(self, auth_callback: Callable[[AuthFlowType], AuthenticatedContext]):
+    def set_user_auth_callback(
+        self, auth_callback: Callable[[AuthFlowType], AuthenticatedContext]
+    ):
         """Set the user authentication callback."""
-        if self._auth_provider and hasattr(self._auth_provider, "_set_custom_auth_callback"):
+        if self._auth_provider and hasattr(
+            self._auth_provider, "_set_custom_auth_callback"
+        ):
             self._auth_provider._set_custom_auth_callback(auth_callback)
 
     @mcp_exception_handler
@@ -417,7 +451,9 @@ class MCPBaseClient(ABC):
         async def _call_tool():
             session = self._session
             timeout = await self._get_tool_call_timeout()
-            return await session.call_tool(tool_name, tool_args, read_timeout_seconds=timeout)
+            return await session.call_tool(
+                tool_name, tool_args, read_timeout_seconds=timeout
+            )
 
         return await self._with_reconnect(_call_tool)
 
@@ -589,7 +625,11 @@ class MCPStreamableHTTPClient(MCPBaseClient):
         Establish a session with an MCP server via streamable-http within an async context
         """
         # Use httpx.Auth for authentication
-        async with streamablehttp_client(url=self._url, auth=self._httpx_auth) as (read, write, _):
+        async with streamablehttp_client(url=self._url, auth=self._httpx_auth) as (
+            read,
+            write,
+            _,
+        ):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 yield session
@@ -620,7 +660,9 @@ class MCPToolClient:
         self._tool_name = tool_name
         self._tool_description = tool_description
         self._input_schema = (
-            model_from_mcp_schema(self._tool_name, tool_input_schema) if tool_input_schema else None
+            model_from_mcp_schema(self._tool_name, tool_input_schema)
+            if tool_input_schema
+            else None
         )
         self._parent_client = parent_client
 
@@ -676,7 +718,9 @@ class MCPToolClient:
                     analysis = await self._analyze_image(res.data, res.mimeType)
                     text_output.append(f"[Image Analysis]\n{analysis}")
                 else:
-                    logger.warning("Got unknown content type from %s: %s", self.name, type(res))
+                    logger.warning(
+                        "Got unknown content type from %s: %s", self.name, type(res)
+                    )
 
             result_str = "\n".join(text_output)
 
@@ -704,7 +748,10 @@ class MCPToolClient:
         if not api_key:
             return "Error: NVIDIA_API_KEY not set"
 
-        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
 
         payload = {
             "model": "meta/llama-4-maverick-17b-128e-instruct",

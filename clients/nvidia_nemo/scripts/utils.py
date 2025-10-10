@@ -65,7 +65,9 @@ def model_from_mcp_schema(name: str, mcp_input_schema: dict) -> type[BaseModel]:
             field_type = Enum(enum_name, {item: item for item in enum_vals})
 
         elif json_type == "object" and "properties" in field_properties:
-            field_type = model_from_mcp_schema(name=field_name, mcp_input_schema=field_properties)
+            field_type = model_from_mcp_schema(
+                name=field_name, mcp_input_schema=field_properties
+            )
         elif json_type == "array" and "items" in field_properties:
             item_properties = field_properties.get("items", {})
             if item_properties.get("type") == "object":
@@ -111,7 +113,8 @@ def model_from_mcp_schema(name: str, mcp_input_schema: dict) -> type[BaseModel]:
                     default_value = field_properties.get("default", None)
 
             return field_type, Field(
-                default=default_value, description=field_properties.get("description", "")
+                default=default_value,
+                description=field_properties.get("description", ""),
             )
         else:
             field_type = _type_map.get(json_type, Any)
