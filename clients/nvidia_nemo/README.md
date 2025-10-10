@@ -127,7 +127,7 @@ Tools served by remote MCP servers can be leveraged as NeMo Agent toolkit functi
 
 In this example, the `mcp_client` configuration is used to connect to the ROS MCP Server, dynamically discover the available tools, and register them as NeMo Agent Toolkit functions.
 
-The MCP Client configuration file for this example is located at `ros-mcp-client/clients/nvidia_nemo/configs/config-mcp-client.yml`. Open this file and modify the following parameters.
+The MCP Client configuration file for this example is located at `robot-mcp-client/clients/nvidia_nemo/configs/config-mcp-client.yml`. Open this file and modify the following parameters.
 
 
 ```yaml
@@ -171,20 +171,20 @@ Currently, there are parts of the NeMo Agent Toolkit's MCP functionality that ar
 
 The reason for modifying this code is that ROS MCP Server can pass arrays of objects with undefined structure. To handle this safely, the code was updated to properly process object type arrays without properties in MCP schemas, preventing runtime errors.
 
-A modified version of this script is provided at `ros-mcp-client/clients/nvidia_nemo/scripts/utils.py`. Replace the original script with the modified version using the following command:
+A modified version of this script is provided at `robot-mcp-client/clients/nvidia_nemo/scripts/utils.py`. Replace the original script with the modified version using the following command:
 
 ```bash
-cp ros-mcp-client/clients/nvidia_nemo/scripts/utils.py nemo-agent-toolkit/packages/nvidia_nat_mcp/src/nat/plugins/mcp/utils.py
+cp robot-mcp-client/clients/nvidia_nemo/scripts/utils.py nemo-agent-toolkit/packages/nvidia_nat_mcp/src/nat/plugins/mcp/utils.py
 ```
 
 ### 2. `nemo-agent-toolkit/packages/nvidia_nat_mcp/src/nat/plugins/mcp/client_base.py`
 
 The reason for modifying the script is that the current MCP Client of the NeMo Agent Toolkit can only handle TextContent-type responses from the MCP Server. However, the ROS MCP Server provides tools that return images via ImageContent, so the script needs to be updated to handle ImageContent-type responses as well.
 
-A modified version of this script is provided at `ros-mcp-client/clients/nvidia_nemo/scripts/client_base.py`. Replace the original script with the modified version using the following command:
+A modified version of this script is provided at `robot-mcp-client/clients/nvidia_nemo/scripts/client_base.py`. Replace the original script with the modified version using the following command:
 
 ```bash
-cp ros-mcp-client/clients/nvidia_nemo/scripts/client_base.py nemo-agent-toolkit/packages/nvidia_nat_mcp/src/nat/plugins/mcp/client_base.py
+cp robot-mcp-client/clients/nvidia_nemo/scripts/client_base.py nemo-agent-toolkit/packages/nvidia_nat_mcp/src/nat/plugins/mcp/client_base.py
 ```
 
 
@@ -198,7 +198,7 @@ Once all installations and modifications are complete, the ROS MCP Server can be
 ```bash
 cd nemo-agent-toolkit
 source .venv/bin/activate
-nat serve --config_file /<ABSOLUTE_PATH>/ros-mcp-client/clients/nvidia_nemo/configs/config-mcp-client.yml
+nat serve --config_file /<ABSOLUTE_PATH>/robot-mcp-client/clients/nvidia_nemo/configs/config-mcp-client.yml
 ```
 This command starts the ROS MCP Server using the NeMo Agent Toolkit. The ROS MCP Server runs the `server.py` script in the `ros-mcp-server` directory using the STDIO transport method.
 
