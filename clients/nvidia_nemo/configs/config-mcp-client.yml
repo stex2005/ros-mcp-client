@@ -1,0 +1,22 @@
+function_groups:
+  ros_mcp_tools:
+    _type: mcp_client
+    server:
+      transport: stdio
+      command: "uv"
+      args: ["--directory", "/<ABSOLUTE_PATH>/ros-mcp-server", "run", "server.py"] # Replace <ABSOLUTE_PATH> with the absolute path to the ros-mcp-server directory
+llms:
+  nim_llm:
+    _type: nim
+    model_name: meta/llama-4-maverick-17b-128e-instruct # or any other model available in NVIDIA NeMo
+    temperature: 0.0
+    max_tokens: 1024
+
+workflow:
+  _type: react_agent
+  tool_names:
+    - ros_mcp_tools
+  llm_name: nim_llm
+  verbose: true
+  retry_parsing_errors: true
+  max_retries: 3
